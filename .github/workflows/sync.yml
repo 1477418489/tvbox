@@ -1,0 +1,39 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master  # 明确指定要同步的分支
+
+      - name: Sync master branch
+        env:
+          UPSTREAM_REPO: 'https://github.com/qist/tvbox.git'
+          UPSTREAM_BRANCH: 'master'
+          TARGET_BRANCH: 'master'
+        run: |
+          git remote add upstream $UPSTREAM_REPO
+          git fetch upstream
+          git checkout $TARGET_BRANCH
+          git reset --hard upstream/$UPSTREAM_BRANCH
+          git push origin $TARGET_BRANCH --force
+
+      - name: Restore workflow file
+        env:
+          SYNC_BRANCH: 'sync-branch'  # 保存工作流的分支
+        run: |
+          # 从 sync-branch 恢复工作流文件
+          git fetch origin $SYNC_BRANCH
+          git checkout $SYNC_BRANCH -- .github/workflows/sync.yml
+          git add .github/workflows/sync.yml
+          git commit -m "Restore sync workflow from $SYNC_BRANCH" || echo "No changes to commit"
+          git push origin $TARGET_BRANCH
